@@ -13,12 +13,14 @@ from entity.article import Chapter, Article, Content
 
 ''' 文本流畅度评分 '''
 # TODO 感觉大模型评分不是很可靠，使用缓存，基于概率时，是否会导致同一评分出现的频率大大增加
+# TODO 是否具备数字化指标？
+# TODO 五种评语拆分为五个 Agent/system_prompt, 采取 few_shot 技术
 
 config_init.init()
 base_url = os.getenv('BASE_URL', "https://api.siliconflow.cn/v1")
 api_key = os.getenv('API_KEY')
-# model = "Qwen/Qwen3-30B-A3B-Instruct-2507"
-model = "Qwen/Qwen2.5-7B-Instruct"
+model = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+# model = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B"
 
 llm = ChatOpenAI(
     model=model,
@@ -26,12 +28,13 @@ llm = ChatOpenAI(
     base_url=base_url,
 )
 
+# 通过 bind 绑定参数
 json_llm = llm.bind(response_format={"type": "json_object"})
 
 system_prompt = """
-你是一位中国中科院院士，擅长对硕士学术论文进行修订，并判定段落内容的衔接度。你的目标是根据给定论文段落，从多个角度对 **{原文}** 进行评估，判定语句间、段落间的衔接是否流畅。请基于以下**评分标准**对段落进行评分，并给出 **{评语(JSON)}**：
+你是一位中国中科院院士，擅长对硕士学术论文进行修订，并判定段落内容的衔接度。你的目标是根据给定论文段落，从多个角度对 **{原文}** 进行评估，判定语句间、段落间的衔接是否流畅。请基于以下 **{评分标准}** 对段落进行评分，并给出多种角度的 **{评语(JSON)}**：
 
-评分标准：
+** 评分标准 **：
 1. **语句用词专业度**：评估段落中的术语、表达是否符合学术标准，语言是否准确、专业。
 2. **段落逻辑结构**：评估段落内句与句之间、段落与段落之间的逻辑关系是否清晰，是否自然地衔接。
 3. **过渡语句的使用**：检查是否有恰当的过渡语句，确保内容间的顺畅过渡，避免突兀的跳跃。
@@ -46,7 +49,31 @@ system_prompt = """
 
 ** 评语(JSON) **：
 ```
-[{"评估维度":"语句用词专业度","评分":7.5/10,"详细评价":"措辞方面，句一“推动了该领域的进步”过于抽象和通俗化，未达到学术论文对高密度信息表达的要求。此外，对“超过了人类水平”这一核心成就的论断，应加入“ImageNet等特定大规模视觉基准”的限定语，以确保学术严谨性。"},{"评估维度":"段落逻辑结构","评分":8.5/10,"详细评价":"宏观结构良好，但句二和句三之间存在逻辑跳跃。段落直接从高性能带来的“广泛应用”跳至“迁移学习”解决方案，缺少对应用中遇到的关键部署挑战（如数据稀疏、泛化性不足）的明确引入。"},{"评估维度":"过渡语句的使用","评分":7/10,"详细评价":"句间衔接相对生硬，未能使用强引导性的过渡词，来明确指示信息焦点从“应用成果”向“解决方案”的转移。"},{"评估维度":"语言流畅度","评分":8/10,"详细评价":"语言流畅，但由三个复杂长句构成，阅读节奏变化不足。句二中应用领域列表过长，使得句子承载的信息负荷较高，可能影响可读性。"},{"评估维度":"内容重复度","评分":8/10,"详细评价":"表面无重复，但存在低密度信息冗余。句一“推动了该领域的进步”是抽象描述，其信息价值已被句二的具象成果“达到了或超过了人类水平”完全涵盖和超越。"}]
+[{
+	"评估维度": "语句用词专业度",
+	"评分": 7.5 / 10,
+	"详细评价": "措辞方面，句一“推动了该领域的进步”过于抽象和通俗化，未达到学术论文对高密度信息表达的要求。此外，对“超过了人类水平”这一核心成就的论断，应加入“ImageNet等特定大规模视觉基准”的限定语，以确保学术严谨性。"
+},
+{
+	"评估维度": "段落逻辑结构",
+	"评分": 8.5 / 10,
+	"详细评价": "宏观结构良好，但句二和句三之间存在逻辑跳跃。段落直接从高性能带来的“广泛应用”跳至“迁移学习”解决方案，缺少对应用中遇到的关键部署挑战（如数据稀疏、泛化性不足）的明确引入。"
+},
+{
+	"评估维度": "过渡语句的使用",
+	"评分": 7 / 10,
+	"详细评价": "句间衔接相对生硬，未能使用强引导性的过渡词，来明确指示信息焦点从“应用成果”向“解决方案”的转移。"
+},
+{
+	"评估维度": "语言流畅度",
+	"评分": 8 / 10,
+	"详细评价": "语言流畅，但由三个复杂长句构成，阅读节奏变化不足。句二中应用领域列表过长，使得句子承载的信息负荷较高，可能影响可读性。"
+},
+{
+	"评估维度": "内容重复度",
+	"评分": 8 / 10,
+	"详细评价": "表面无重复，但存在低密度信息冗余。句一“推动了该领域的进步”是抽象描述，其信息价值已被句二的具象成果“达到了或超过了人类水平”完全涵盖和超越。"
+}]
 ```
 """
 
@@ -63,11 +90,7 @@ def text_scoring(messages: List[Tuple[str, str]], iteration_num) -> List[evaluat
         data = json.loads(evaluation_res)
 
         # 将评语反序列化为对象
-        indicators = []
-        for res in data:
-            mapped_data = {evaluation_indicator.field_mapping[key]: value for key, value in res.items()}
-            indicator = evaluation_indicator.Indicator(**mapped_data)
-            indicators.append(indicator)
+        indicators = evaluation_indicator.Indicator.parse_indicator_json(data)
         return indicators
     except JSONDecodeError as e:
         print(f"模型返回 JSON 格式错误: {e}")
@@ -77,7 +100,7 @@ def text_scoring(messages: List[Tuple[str, str]], iteration_num) -> List[evaluat
         return text_scoring(messages, iteration_num + 1)
 
 
-def article_score(article: Article, prefix_prompt: str) -> List[Union[Chapter, Article]]:
+def paragraph_score(article: Article, prefix_prompt: str) -> List[Union[Chapter, Article]]:
     prefix_prompt += article.to_prompt() + "\n"
     # 对子节点进行评分
     updated_sections = []
@@ -85,7 +108,7 @@ def article_score(article: Article, prefix_prompt: str) -> List[Union[Chapter, A
         if isinstance(section, Chapter):
             # 递归评分章节
             chapter = Chapter(title=section.summary_key())
-            chapter.subsections = article_score(section, prefix_prompt)
+            chapter.subsections = paragraph_score(section, prefix_prompt)
             updated_sections.append(chapter)
         else:
             # 遍历 article 进行评分 => 按照框架节点进行打分, 主题-章节-段落中心思想(可能包含多段内容)
@@ -106,6 +129,7 @@ def article_score(article: Article, prefix_prompt: str) -> List[Union[Chapter, A
 
 
 if __name__ == '__main__':
+    topic = "时序数据库查询处理逻辑错误检测技术"
     # 引用框架
     article_framework = None
     try:
@@ -122,7 +146,7 @@ if __name__ == '__main__':
               }
             }
             """
-        article_framework = framework_agent.deserialization_article(json_res)
+        article_framework = framework_agent.deserialization_article(json_res, topic)
     except Exception as e:
         print(e)
 
@@ -132,5 +156,5 @@ if __name__ == '__main__':
 
     # 逐段评分
     updated_score = Chapter(topic=article_framework.topic, title=article_framework.topic)
-    updated_score.subsections = article_score(updated_paper, "")
+    updated_score.subsections = paragraph_score(updated_paper, "")
     print(updated_score.display())

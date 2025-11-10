@@ -5,17 +5,19 @@ from langchain_openai import ChatOpenAI
 
 import framework_agent
 from chapter_writing_agent import writing_content
-from coherence_cohesion_assessment import article_score
+from coherence_cohesion_assessment import paragraph_score
 from config import config_init
 from entity.article import Chapter, Article, Content
 
 ''' 内容重写模型：采取 FIM 类型，大语言模型能够在文本的任意位置（而不仅仅是末尾）智能生成缺失内容的技术。能够同时关注和理解前缀与后缀提供的完整上下文信息，从而做出更准确的预测。 '''
 
+# TODO 评估该模型有效利用了多少来自于 "评语" 的信息 [如何衡量模型信息利用率]
+
 config_init.init()
 base_url = os.getenv('BASE_URL', "https://api.siliconflow.cn/v1")
 api_key = os.getenv('API_KEY')
-# model = "Tongyi-Zhiwen/QwenLong-L1-32B"
-model = "Qwen/Qwen2.5-7B-Instruct"
+model = "Tongyi-Zhiwen/QwenLong-L1-32B"
+# model = "Qwen/Qwen2.5-7B-Instruct"
 
 llm = ChatOpenAI(
     model=model,
@@ -53,7 +55,7 @@ def rewrite_content(prefix_prompt: str, content: str, remark: str) -> str:
     return ai_msg.content
 
 
-def article_rewriting(article: Article, prefix_prompt: str) -> List[Union[Chapter, Article]]:
+def paragraph_rewriting(article: Article, prefix_prompt: str) -> List[Union[Chapter, Article]]:
     prefix_prompt += article.to_prompt() + "\n"
     # 对子节点进行重写
     updated_sections = []
@@ -61,7 +63,7 @@ def article_rewriting(article: Article, prefix_prompt: str) -> List[Union[Chapte
         if isinstance(section, Chapter):
             # 递归评分章节
             chapter = Chapter(title=section.summary_key())
-            chapter.subsections = article_rewriting(section, prefix_prompt)
+            chapter.subsections = paragraph_rewriting(section, prefix_prompt)
             updated_sections.append(chapter)
         else:
             # 遍历 article 进行重写 => 按照框架节点进行重写, 主题-章节-段落中心思想(可能包含多段内容)
@@ -78,23 +80,24 @@ def article_rewriting(article: Article, prefix_prompt: str) -> List[Union[Chapte
 
 
 if __name__ == '__main__':
+    topic = "时序数据库查询处理逻辑错误检测技术"
     # 引用框架
     article_framework = None
     try:
         json_res = """
                 {
-                  "摘要": "时序数据库在物联网、金融交易、智能监控等领域具有广泛应用，而查询处理中的逻辑错误会导致数据不一致、业务中断等问题。本研究针对时序数据库查询处理逻辑错误检测技术展开系统性研究，提出基于语义分析与特征学习的错误检测模型。研究首先分析了时序查询逻辑错误的类型与特征，构建了包含时序语义约束模型；其次，设计了基于图神经网络的错误检测算法，实现了对复杂查询逻辑的自动化识别；最后，通过实验验证了该方法在实际场景中的有效性，准确率与召回率分别达到92.7%和89.4%。本研究不仅为时序数据库错误检测提供了新思路，还对提升系统可靠性和用户体验具有重要价值。",
+                  "摘要": "时序数据库在物联网、金融、工业控制等领域具有广泛应用，但其查询处理过程中可能因结构复杂性或数据异常导致逻辑错误。本文围绕时序数据库查询处理中逻辑错误的检测技术展开研究，首先分析典型查询逻辑错误的成因与分类，随后提出基于数据模式分析和查询逻辑推理的检测方法。通过构建动态特征提取模型，结合机器学习算法进行异常识别，并在真实数据集上验证算法的准确性与效率。研究结果表明，该方法在多种场景下能够有效检测90%以上的逻辑错误，对提升时序数据库查询效能与数据可靠性具有重要意义。",
                   "关键词": ["时序数据库", "查询处理", "逻辑错误检测", "图神经网络", "语义分析"],
                   "第一章：引言": {
-                    "研究背景": "随着物联网、智能设备的普及，时序数据库在处理海量时间序列数据方面发挥着关键作用。然而，由于时序查询逻辑复杂性高，开发人员常因对时间语义理解不足导致查询逻辑错误，进而影响系统稳定性、数据准确性与用户体验。",
-                    "文献综述": "国内外学者在数据库错误检测领域开展了广泛研究，主要包括SQL语法错误检测、查询优化错误检测等。然而，针对时序数据库特有的时间语义、滑动窗口操作、时间范围约束等查询逻辑的错误检测研究仍较为薄弱。",
-                    "研究问题与目标": "当前时序数据库查询逻辑错误检测存在检测范围窄、准确率低、依赖人工经验等问题。本研究旨在构建一个能够自动识别时序查询中逻辑错误的检测模型，提升时序数据库的运行可靠性。",
-                    "研究方法": "本论文采用基于语义分析与特征学习的混合方法，结合图神经网络（GNN）与时间序列特征提取技术，设计并实现了一种高效的错误检测模型。",
-                    "论文结构": "论文共分为五章，第一章为引言，第二章为文献综述，第三章阐述研究方法与技术路线，第四章进行实证分析，第五章总结研究成果并展望未来研究方向。"
-                  }
+                        "研究背景": "时序数据库是专门用于存储和管理具有时间顺序特性的数据集合，广泛应用于物联网、智能制造、金融风控等多个领域。随着数据规模的扩大和查询复杂度的提升，查询处理中的逻辑错误问题日益突出，可能直接影响业务判断或系统运行稳定性。",
+                        "文献综述": "目前国内外学者对时序数据库查询优化、效率提升等方面已有较多研究，但对于查询处理中逻辑错误的检测与纠正机制关注较少。部分研究尝试利用静态代码分析或形式化验证手段，但受限于计算成本或灵活性较低。",
+                        "研究问题与目标": "本文旨在解决时序数据库查询过程中如何自动检测逻辑错误的问题。目标在于提出一种高效、精准且具备扩展能力的检测方法，并通过实验验证其性能。",
+                        "研究方法": "采用系统分析、算法设计、实验验证相结合的方法。首先通过案例分析研究查询逻辑错误的类型，进而提出检测算法模型，并最终基于真实数据集测试算法效果。",
+                        "论文结构": "第一章是引言，阐述研究背景与意义；第二章梳理相关理论与研究现状；第三章提出检测技术的核心算法；第四章进行实验验证与分析；第五章总结研究成果并展望未来趋势。"
+                    }
                 }
                 """
-        article_framework = framework_agent.deserialization_article(json_res)
+        article_framework = framework_agent.deserialization_article(json_res, topic)
     except Exception as e:
         print(e)
 
@@ -105,10 +108,10 @@ if __name__ == '__main__':
 
     # 逐段评分
     updated_score = Chapter(topic=article_framework.topic, title=article_framework.topic)
-    updated_score.subsections = article_score(updated_paper, "")
+    updated_score.subsections = paragraph_score(updated_paper, "")
     print(updated_score.display())
 
     # 逐段修订
     rewrite_article = Chapter(topic=article_framework.topic, title=article_framework.topic)
-    rewrite_article.subsections = article_rewriting(updated_score, "")
+    rewrite_article.subsections = paragraph_rewriting(updated_score, "")
     print(rewrite_article.display())

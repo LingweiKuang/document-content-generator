@@ -5,6 +5,21 @@ import requests
 
 from config import config_init
 
+# llm = ChatOpenAI(
+#     model="Tongyi-Zhiwen/QwenLong-L1-32B",
+#     # stream_usage=True,
+#     # temperature=None,
+#     # max_tokens=None,
+#     # timeout=None,
+#     # reasoning_effort="low",
+#     # max_retries=2,
+#     api_key=api_key,
+#     # if you prefer to pass api key in directly instead of using env vars
+#     base_url=base_url,
+#     # organization="...",
+#     # other params...
+# )
+
 config_init.init()
 base_url = os.getenv('BASE_URL', "https://api.siliconflow.cn/v1")
 api_key = os.getenv('API_KEY')

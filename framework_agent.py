@@ -11,7 +11,7 @@ from entity.article import Chapter, Article
 config_init.init()
 base_url = "https://api.siliconflow.cn/v1/chat/completions"
 api_key = os.getenv('API_KEY')
-model = "Qwen/Qwen3-30B-A3B-Thinking-2507"
+model = "Qwen/Qwen3-32B"
 # model = "Qwen/Qwen2.5-7B-Instruct"
 
 system_prompt = """
@@ -57,33 +57,25 @@ system_prompt = """
 ```
 """
 
-topic = "时序数据库查询处理逻辑错误检测技术"
 
-messages = [
-    {
-        "role": "system",
-        "content": system_prompt
-    },
-    {
-        "role": "user",
-        "content": "主题思想: " + topic,
+def build_framework(topic: str) -> str:
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "主题思想: " + topic}
+    ]
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "enable_thinking": True,
+        "response_format": {"type": "json_object"},
     }
-]
 
-payload = {
-    "model": model,
-    "messages": messages,
-    "enable_thinking": True,
-    "response_format": {"type": "json_object"},
-}
+    headers = {
+        "Authorization": "Bearer " + api_key,
+        "Content-Type": "application/json"
+    }
 
-headers = {
-    "Authorization": "Bearer " + api_key,
-    "Content-Type": "application/json"
-}
-
-
-def send_post_request():
     try:
         response = requests.post(base_url, headers=headers, json=payload)
         response.raise_for_status()  # 检查请求是否成功
@@ -98,13 +90,13 @@ def send_post_request():
         if hasattr(e, 'response') and e.response is not None:
             print(f"状态码: {e.response.status_code}")
             print(f"错误信息: {e.response.text}")
-        return None
+        return ""
     except Exception as e:
         print(f"请求失败: {e}")
-        return None
+        return ""
 
 
-def deserialization_article(json_res: str) -> Article:
+def deserialization_article(json_res: str, topic: str) -> Article:
     data = json.loads(json_res)
     paper = Chapter(title=topic, topic=topic)
     paper.deserialization(data)
@@ -112,10 +104,11 @@ def deserialization_article(json_res: str) -> Article:
 
 
 if __name__ == '__main__':
+    topic = "时序数据库查询处理逻辑错误检测技术"
     try:
-        json_res = send_post_request()
+        json_res = build_framework(topic)
         print(json_res)
-        article = deserialization_article(json_res)
+        article = deserialization_article(json_res, topic)
         print(article)
     except Exception as e:
         print(e)

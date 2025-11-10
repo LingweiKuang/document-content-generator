@@ -13,7 +13,7 @@ config_init.init()
 base_url = os.getenv('BASE_URL', "https://api.siliconflow.cn/v1")
 api_key = os.getenv('API_KEY')
 model = "Qwen/Qwen2.5-7B-Instruct"
-# model = ""
+# model = "Tongyi-Zhiwen/QwenLong-L1-32B"
 
 llm = ChatOpenAI(
     model=model,
@@ -76,6 +76,8 @@ def writing_content(article: Article, prefix_prompt: str) -> List[Union[Chapter,
 
 
 if __name__ == '__main__':
+    topic = "时序数据库查询处理逻辑错误检测技术"
+
     # 引用框架
     article_framework = None
     try:
@@ -114,7 +116,7 @@ if __name__ == '__main__':
           "附录": "附录A：时序查询逻辑错误分类体系表；附录B：语义约束规则集；附录C：数据集样本示例；附录D：模型训练参数设置。"
         }
         """
-        article_framework = framework_agent.deserialization_article(json_res)
+        article_framework = framework_agent.deserialization_article(json_res, "")
     except Exception as e:
         print(e)
 
